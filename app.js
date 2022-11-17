@@ -52,7 +52,7 @@ receiver.router.post(
         if (currentPresenceStatus === ZoomUserPresenceStatus.IN_MEETING) {
           console.log(`${currentEmail} joined a Zoom meeting`);
 
-          // Shim to filter out consecutive in-meeting status getting reported (Zoom glitch)
+          // Shim for Zoom glitch: in-meeting status can get reported consecutively
           if (receiver.app.locals.inMeeting) return;
 
           // Store in meeting status in express app via locals, so it persist within the application
@@ -61,22 +61,28 @@ receiver.router.post(
           // If the user already has DND turned on, do not overwrite it
           app.client.dnd.info(userToken).then((res) => {
             receiver.app.locals.alreadySnoozed = res.snooze_enabled;
-            if (res.snooze_enabled) return;
+            if (res.snooze_enabled) {
+              console.log("skip setting snooze: already on");
+              return;
+            }
             app.client.dnd
               .setSnooze({
                 ...userToken,
                 // is_indefinite: true, // not working
                 num_minutes: 120,
               })
-              .then((res) =>
-                console.log(
-                  `Slack snooze ON: ${res.snooze_enabled ? "✅" : "⚠️"}`
-                )
-              );
+              .then((res) => {
+                if (res.snooze_enabled) console.log("✅ Slack snooze is on 🔇");
+                else
+                  console.log(
+                    "⚠️ could not set Slack snooze- something went wrong"
+                  );
+              });
           });
         } else if (
           (currentPresenceStatus === ZoomUserPresenceStatus.AVAILABLE ||
             currentPresenceStatus === ZoomUserPresenceStatus.OFFLINE ||
+            // Cover for the case where the user has a scheduled meeting but is not actually in a meeting
             currentPresenceStatus ===
               ZoomUserPresenceStatus.IN_CALENDAR_EVENT) &&
           // Check if the user was in a meeting before
@@ -86,15 +92,18 @@ receiver.router.post(
           receiver.app.locals.inMeeting = false;
 
           // If the user had DND on before joining the meeting, do not turn it off
-          if (receiver.app.locals.alreadySnoozed) return;
+          if (receiver.app.locals.alreadySnoozed) {
+            console.log("skip unsetting snooze: was already on");
+            return;
+          }
 
-          app.client.dnd
-            .endSnooze(userToken)
-            .then((res) =>
+          app.client.dnd.endSnooze(userToken).then((res) => {
+            if (!res.snooze_enabled) console.log("✅ Slack snooze is off 🔊");
+            else
               console.log(
-                `Slack snooze OFF: ${res.snooze_enabled ? "⚠️" : "✅"}`
-              )
-            );
+                "⚠️ could not end Slack snooze- something went wrong"
+              );
+          });
         }
       }
     }
