@@ -17,16 +17,15 @@ const app = new App({
 /* to-do:
  - post message to app channel when snooze is on/off?
 */
+const userToken = { token: process.env.SLACK_USER_TOKEN };
 
 // Slack interactions are methods on app
-app.client.auth.test({ token: process.env.SLACK_USER_TOKEN }).then((res) => {
+app.client.auth.test(userToken).then((res) => {
   // Find and store the slack app user's email
   const userId = res.user_id;
-  app.client.users
-    .info({ token: process.env.SLACK_USER_TOKEN, user: userId })
-    .then((res) => {
-      receiver.app.locals.userEmail = res.user.profile.email;
-    });
+  app.client.users.info({ ...userToken, user: userId }).then((res) => {
+    receiver.app.locals.userEmail = res.user.profile.email;
+  });
 });
 
 // Other web requests are methods on receiver.router
@@ -55,24 +54,21 @@ receiver.router.post(
           receiver.app.locals.inMeeting = true;
 
           // If the user already has DND turned on, do not overwrite it
-          app.client.dnd
-            .info({ token: process.env.SLACK_USER_TOKEN })
-            .then((res) => {
-              if (res.snooze_enabled) receiver.app.locals.alreadySnoozed = true;
-              else {
-                app.client.dnd
-                  .setSnooze({
-                    token: process.env.SLACK_USER_TOKEN,
-                    // is_indefinite: true, // not working
-                    num_minutes: 120,
-                  })
-                  .then((res) =>
-                    console.log(
-                      `Slack snooze ON: ${res.snooze_enabled ? "✅" : "⚠️"}`
-                    )
-                  );
-              }
-            });
+          app.client.dnd.info(userToken).then((res) => {
+            receiver.app.locals.alreadySnoozed = res.snooze_enabled;
+            if (res.snooze_enabled) return;
+            app.client.dnd
+              .setSnooze({
+                ...userToken,
+                // is_indefinite: true, // not working
+                num_minutes: 120,
+              })
+              .then((res) =>
+                console.log(
+                  `Slack snooze ON: ${res.snooze_enabled ? "✅" : "⚠️"}`
+                )
+              );
+          });
         } else if (
           (currentPresenceStatus === SlackUserPresenceStatus.AVAILABLE ||
             currentPresenceStatus === SlackUserPresenceStatus.OFFLINE ||
@@ -88,9 +84,7 @@ receiver.router.post(
           if (receiver.app.locals.alreadySnoozed) return;
 
           app.client.dnd
-            .endSnooze({
-              token: process.env.SLACK_USER_TOKEN,
-            })
+            .endSnooze(userToken)
             .then((res) =>
               console.log(
                 `Slack snooze OFF: ${res.snooze_enabled ? "⚠️" : "✅"}`
