@@ -1,4 +1,4 @@
-const SlackEventType = {
+const ZoomEventType = {
   MEETING: {
     PARTICIPANT_JOINED: "meeting.participant_joined",
     PARTICIPANT_LEFT: "meeting.participant_left",
@@ -8,7 +8,7 @@ const SlackEventType = {
   },
 };
 
-const SlackUserPresenceStatus = {
+const ZoomUserPresenceStatus = {
   AVAILABLE: "Available",
   AWAY: "Away",
   DO_NOT_DISTURB: "Do_Not_Disturb",
@@ -87,4 +87,4 @@ const meetingParticipantLeftExample = {
   },
 };
 
-module.exports = { SlackEventType, SlackUserPresenceStatus };
+module.exports = { ZoomEventType, ZoomUserPresenceStatus };

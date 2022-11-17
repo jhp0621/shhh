@@ -1,14 +1,14 @@
 const { App, ExpressReceiver } = require("@slack/bolt");
 require("dotenv").config();
 const bodyParser = require("body-parser");
-const { SlackEventType, SlackUserPresenceStatus } = require("./config");
+const { ZoomEventType, ZoomUserPresenceStatus } = require("./config");
 
 // Create a Bolt Receiver
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
 });
 
-// Create the Bolt App, using the receiver
+// Create the Slack Bolt App, using the receiver
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   receiver,
@@ -17,11 +17,12 @@ const app = new App({
 /* to-do:
  - post message to app channel when snooze is on/off?
 */
+
 const userToken = { token: process.env.SLACK_USER_TOKEN };
 
 // Slack interactions are methods on app
 app.client.auth.test(userToken).then((res) => {
-  // Find and store the slack app user's email
+  // Find and store the Slack app user's email
   const userId = res.user_id;
   app.client.users.info({ ...userToken, user: userId }).then((res) => {
     receiver.app.locals.userEmail = res.user.profile.email;
@@ -40,7 +41,7 @@ receiver.router.post(
       res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    if (event.event === SlackEventType.USER.PRESENCE_STATUS_UPDATED) {
+    if (event.event === ZoomEventType.USER.PRESENCE_STATUS_UPDATED) {
       const { presence_status: currentPresenceStatus, email: currentEmail } =
         event.payload.object;
 
@@ -48,9 +49,9 @@ receiver.router.post(
         currentEmail === receiver.app.locals.userEmail &&
         req.headers.authorization === process.env.ZOOM_VERIFICATION_TOKEN
       ) {
-        if (currentPresenceStatus === SlackUserPresenceStatus.IN_MEETING) {
+        if (currentPresenceStatus === ZoomUserPresenceStatus.IN_MEETING) {
           console.log(`${currentEmail} joined a Zoom meeting`);
-          // Store inMeeting: true in express app locals object so it persist within the application
+          // Store in meeting status in express app via locals, so it persist within the application
           receiver.app.locals.inMeeting = true;
 
           // If the user already has DND turned on, do not overwrite it
@@ -70,10 +71,10 @@ receiver.router.post(
               );
           });
         } else if (
-          (currentPresenceStatus === SlackUserPresenceStatus.AVAILABLE ||
-            currentPresenceStatus === SlackUserPresenceStatus.OFFLINE ||
+          (currentPresenceStatus === ZoomUserPresenceStatus.AVAILABLE ||
+            currentPresenceStatus === ZoomUserPresenceStatus.OFFLINE ||
             currentPresenceStatus ===
-              SlackUserPresenceStatus.IN_CALENDAR_EVENT) &&
+              ZoomUserPresenceStatus.IN_CALENDAR_EVENT) &&
           // Check if the user was in a meeting before
           receiver.app.locals.inMeeting
         ) {
