@@ -51,6 +51,10 @@ receiver.router.post(
       ) {
         if (currentPresenceStatus === ZoomUserPresenceStatus.IN_MEETING) {
           console.log(`${currentEmail} joined a Zoom meeting`);
+
+          // Shim to filter out consecutive in-meeting status getting reported (Zoom glitch)
+          if (receiver.app.locals.inMeeting) return;
+
           // Store in meeting status in express app via locals, so it persist within the application
           receiver.app.locals.inMeeting = true;
 
